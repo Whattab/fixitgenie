@@ -1,0 +1,8 @@
+{
+  "appId": "com.fixitgenie.app",
+  "appName": "fixit-hub",
+  "webDir": "dist",
+  "server": {
+    "cleartext": false
+  }
+}

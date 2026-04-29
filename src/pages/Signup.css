@@ -1,0 +1,240 @@
+.signup-container {
+  min-height: calc(100vh - 80px);
+  /* Adjust for header */
+  background: var(--bg-dark);
+  /* Fallback or contextual bg */
+  background: radial-gradient(circle at top center, #eef2ff 0%, #dbeafe 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4rem 2rem;
+  color: #1e293b;
+}
+
+.signup-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.signup-header h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #1e3a8a;
+  /* Dark Blue */
+  margin-bottom: 0.5rem;
+}
+
+.signup-header p {
+  color: #64748b;
+  font-size: 1.1rem;
+}
+
+.signup-content {
+  display: flex;
+  gap: 2rem;
+  width: 100%;
+  max-width: 900px;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.signup-card {
+  background: white;
+  border-radius: 20px;
+  padding: 3rem 2rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.signup-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.signup-card.active {
+  flex: 2;
+  border-color: #3b82f6;
+  cursor: default;
+  transform: none;
+}
+
+.signup-card.inactive {
+  flex: 0.8;
+  opacity: 0.6;
+  transform: scale(0.95);
+}
+
+.icon-wrapper {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.homeowner-icon {
+  background: #dbeafe;
+  /* Light Blue */
+  color: #2563eb;
+}
+
+.professional-icon {
+  background: #ffedd5;
+  /* Light Orange */
+  color: #ea580c;
+}
+
+.signup-card h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: #0f172a;
+}
+
+.signup-card .description {
+  color: #64748b;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.benefits-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: #475569;
+  font-size: 0.95rem;
+}
+
+.benefits-list li svg {
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+/* Form Styles */
+.signup-form {
+  margin-top: 2rem;
+  width: 100%;
+  animation: fadeIn 0.5s ease-out;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.signup-form h3 {
+  margin-bottom: 1rem;
+  color: #334155;
+  font-size: 1.2rem;
+}
+
+.signup-form input {
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  width: 100%;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.signup-form input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0 !important;
+  /* Override button margin */
+}
+
+.password-toggle:hover {
+  color: #64748b;
+  background: transparent;
+}
+
+.signup-form button {
+  background: #2563eb;
+  color: white;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 0.5rem;
+}
+
+.signup-form button:hover {
+  background: #1d4ed8;
+}
+
+.back-btn {
+  margin-top: 2rem;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  padding: 0.5rem;
+}
+
+.back-btn:hover {
+  color: #334155;
+}
+
+@media (max-width: 768px) {
+  .signup-content {
+    flex-direction: column;
+  }
+}
