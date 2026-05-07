@@ -18,34 +18,37 @@ import ProOnboarding from './pages/ProOnboarding';
 import Header from './components/Header';
 import { AuthProvider } from './context/AuthContext';
 import { ServiceProvider } from './context/ServiceContext';
+import { MessagingProvider } from './context/MessagingContext';
 
 function App() {
   return (
     <AuthProvider>
       <ServiceProvider>
-        <Router>
-          <Header />
-          <main style={{ flex: 1, paddingTop: '120px' }}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/forum" element={<Forum />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/my-requests" element={<HomeownerDashboard />} />
-              <Route path="/my-bids" element={<ProDashboard />} />
-              <Route path="/request-repair" element={<RepairRequest />} />
-              <Route path="/services" element={<ServiceRequestsList />} />
-              <Route path="/professionals" element={<Professionals />} />
-              <Route path="/professional/:id" element={<PublicProProfile />} />
-              <Route path="/pro-onboarding" element={<ProOnboarding />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/verification" element={<Verification />} />
-            </Routes>
-          </main>
-        </Router>
+        <MessagingProvider>
+          <Router>
+            <Header />
+            <main style={{ flex: 1, paddingTop: '120px' }}>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/forum" element={<Forum />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/my-requests" element={<HomeownerDashboard />} />
+                <Route path="/my-bids" element={<ProDashboard />} />
+                <Route path="/request-repair" element={<RepairRequest />} />
+                <Route path="/services" element={<ServiceRequestsList />} />
+                <Route path="/professionals" element={<Professionals />} />
+                <Route path="/professional/:id" element={<PublicProProfile />} />
+                <Route path="/pro-onboarding" element={<ProOnboarding />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/verification" element={<Verification />} />
+              </Routes>
+            </main>
+          </Router>
+        </MessagingProvider>
       </ServiceProvider>
     </AuthProvider>
   )
