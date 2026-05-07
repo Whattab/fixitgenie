@@ -15,6 +15,7 @@ import ResetPassword from './pages/ResetPassword';
 import Professionals from './pages/Professionals';
 import PublicProProfile from './pages/PublicProProfile';
 import ProOnboarding from './pages/ProOnboarding';
+import Messages from './pages/Messages';
 import Header from './components/Header';
 import { AuthProvider } from './context/AuthContext';
 import { ServiceProvider } from './context/ServiceContext';
@@ -45,6 +46,7 @@ function App() {
                 <Route path="/pro-onboarding" element={<ProOnboarding />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/verification" element={<Verification />} />
+                <Route path="/messages" element={<Messages />} />
               </Routes>
             </main>
           </Router>
