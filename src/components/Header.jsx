@@ -1,9 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMessaging } from '../context/MessagingContext';
 import { LogOut, User, Shield, Home as HomeIcon, MessageSquare, Wrench, Search, Info } from 'lucide-react';
 
 const Header = () => {
     const { user, logout } = useAuth();
+    const { totalUnread } = useMessaging();
     const navigate = useNavigate();
 
     const handleLogout = async () => {
@@ -52,6 +54,23 @@ const Header = () => {
                         <Info className="nav-icon" size={24} />
                         <span className="nav-text">About</span>
                     </Link>
+                    {user && (
+                        <Link to="/messages" className="nav-link" style={{ color: 'var(--text-main)', position: 'relative' }}>
+                            <MessageSquare className="nav-icon" size={24} />
+                            <span className="nav-text">Messages</span>
+                            {totalUnread > 0 && (
+                                <span style={{
+                                    position: 'absolute', top: '-4px', right: '-6px',
+                                    background: '#ef4444', color: 'white',
+                                    fontSize: '0.65rem', fontWeight: 700,
+                                    padding: '0.1rem 0.35rem', borderRadius: '10px',
+                                    lineHeight: 1.2, minWidth: '16px', textAlign: 'center',
+                                }}>
+                                    {totalUnread > 9 ? '9+' : totalUnread}
+                                </span>
+                            )}
+                        </Link>
+                    )}
                 </nav>
                 <div className="header-actions">
                     {user ? (

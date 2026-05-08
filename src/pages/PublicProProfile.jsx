@@ -1,18 +1,50 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { User, MapPin, Shield, Star, DollarSign, Clock, CheckCircle, Briefcase, Languages, ChevronLeft } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useMessaging } from '../context/MessagingContext';
+import { User, MapPin, Shield, Star, DollarSign, Clock, CheckCircle, Briefcase, Languages, ChevronLeft, MessageSquare } from 'lucide-react';
 
 export default function PublicProProfile() {
     const { id } = useParams();
+    const { user } = useAuth();
+    const { getOrCreateConversation } = useMessaging();
+    const navigate = useNavigate();
     const [proData, setProData] = useState(null);
     const [details, setDetails] = useState(null);
     const [portfolio, setPortfolio] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [qualifyingRequestId, setQualifyingRequestId] = useState(null);
 
     useEffect(() => {
         fetchProfileData();
     }, [id]);
+
+    // Check if viewer is a homeowner with an active bid from this pro
+    useEffect(() => {
+        if (!user || user.type !== 'homeowner' || !id) return;
+        async function checkQualifyingBid() {
+            const { data, error } = await supabase
+                .from('bids')
+                .select('request_id')
+                .eq('pro_id', id)
+                .in('status', ['pending', 'accepted'])
+                .order('created_at', { ascending: false })
+                .limit(1);
+            if (error || !data || data.length === 0) return;
+            // Verify the request belongs to this homeowner
+            const { data: req, error: reqErr } = await supabase
+                .from('service_requests')
+                .select('id')
+                .eq('id', data[0].request_id)
+                .eq('user_id', user.id)
+                .maybeSingle();
+            if (!reqErr && req) {
+                setQualifyingRequestId(req.id);
+            }
+        }
+        checkQualifyingBid();
+    }, [user, id]);
 
     const fetchProfileData = async () => {
         setLoading(true);
@@ -117,10 +149,35 @@ export default function PublicProProfile() {
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                     <Link to="/request-repair" className="btn btn-primary" style={{ padding: '0.8rem 2rem', fontSize: '1.1rem' }}>
                         Request Service
                     </Link>
+                    {qualifyingRequestId && (
+                        <button
+                            onClick={async () => {
+                                try {
+                                    const conv = await getOrCreateConversation({
+                                        requestId: qualifyingRequestId,
+                                        homeownerId: user.id,
+                                        proId: id,
+                                    });
+                                    navigate(`/messages?conversation=${conv.id}`);
+                                } catch (err) {
+                                    console.error('[PublicProProfile] message error:', err);
+                                    alert('Could not open conversation.');
+                                }
+                            }}
+                            style={{
+                                padding: '0.8rem 2rem', fontSize: '1.1rem',
+                                background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.4)',
+                                color: '#60a5fa', borderRadius: '8px', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            }}
+                        >
+                            <MessageSquare size={18} /> Message this Pro
+                        </button>
+                    )}
                 </div>
             </div>
 

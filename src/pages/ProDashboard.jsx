@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useMessaging } from '../context/MessagingContext';
 import { supabase } from '../lib/supabaseClient';
-import { Clock, MapPin, DollarSign, User, CheckCircle, Smartphone, Mail, AlertCircle, Star, Zap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Clock, MapPin, DollarSign, User, CheckCircle, Smartphone, Mail, AlertCircle, Star, Zap, MessageSquare } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 
 export default function ProDashboard() {
     const { user } = useAuth();
+    const { getOrCreateConversation } = useMessaging();
+    const navigate = useNavigate();
     const [myBids, setMyBids] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState(null);
@@ -134,7 +137,8 @@ export default function ProDashboard() {
                         urgency,
                         city_state,
                         created_at,
-                        status
+                        status,
+                        user_id
                     )
                 `)
                 .eq('pro_id', user.id)
@@ -270,6 +274,21 @@ export default function ProDashboard() {
     const cancelEditing = () => {
         setEditingBid(null);
         setEditForm({ price: '', message: '' });
+    };
+
+    const handleMessageHomeowner = async (bid) => {
+        if (!bid.request?.id) return;
+        try {
+            const conv = await getOrCreateConversation({
+                requestId: bid.request.id,
+                homeownerId: bid.request.user_id ?? bid.homeowner_id,
+                proId: user.id,
+            });
+            navigate(`/messages?conversation=${conv.id}`);
+        } catch (err) {
+            console.error('[ProDashboard] handleMessageHomeowner error:', err);
+            alert('Could not open conversation. Please try again.');
+        }
     };
 
     const saveEditing = async (bidId) => {
@@ -544,7 +563,19 @@ export default function ProDashboard() {
                                                 </div>
 
                                                 {/* Actions */}
-                                                <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+                                                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                                    {(bid.status === 'pending' || bid.status === 'accepted') && !isLost && (
+                                                        <button
+                                                            onClick={() => handleMessageHomeowner(bid)}
+                                                            style={{
+                                                                background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.4)',
+                                                                color: '#60a5fa', padding: '0.3rem 0.8rem', borderRadius: '4px',
+                                                                cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem'
+                                                            }}
+                                                        >
+                                                            <MessageSquare size={14} /> Message Homeowner
+                                                        </button>
+                                                    )}
                                                     {bid.status === 'pending' && !isLost && (
                                                         <button
                                                             onClick={() => startEditing(bid)}

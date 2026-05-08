@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMessaging } from '../context/MessagingContext';
 import ConversationThread from '../components/ConversationThread';
@@ -160,11 +160,26 @@ function SelectPrompt() {
 export default function Messages() {
   const { user } = useAuth();
   const { conversations, unreadCounts } = useMessaging();
+  const [searchParams] = useSearchParams();
 
   const [tab, setTab] = useState('active');
   const [selectedId, setSelectedId] = useState(null);
   // Mobile: true = show thread, false = show list
   const [mobileView, setMobileView] = useState('list');
+
+  // Auto-select conversation from ?conversation= query param
+  useEffect(() => {
+    const paramId = searchParams.get('conversation');
+    if (paramId && conversations.length > 0) {
+      const match = conversations.find((c) => c.id === paramId);
+      if (match) {
+        setSelectedId(paramId);
+        setMobileView('thread');
+      }
+    }
+  // Only run when conversations load in (not on every re-render)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, conversations.length]);
 
   // Determine side (homeowner vs pro) for each conversation
   function isHomeowner(conv) { return conv.homeowner_id === user?.id; }

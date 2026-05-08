@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useService } from '../context/ServiceContext';
+import { useMessaging } from '../context/MessagingContext';
 import { supabase } from '../lib/supabaseClient';
-import { Clock, MapPin, DollarSign, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, Shield, Star } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Clock, MapPin, DollarSign, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, Shield, Star, MessageSquare } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import ReviewModal from '../components/ReviewModal';
 import RequestQnA from '../components/RequestQnA';
 
 export default function HomeownerDashboard() {
     const { user } = useAuth();
     const { deleteRequest } = useService();
+    const { getOrCreateConversation } = useMessaging();
+    const navigate = useNavigate();
     const [myRequests, setMyRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState(null);
@@ -160,6 +163,20 @@ export default function HomeownerDashboard() {
     const openReviewModal = (requestId, proId) => {
         setReviewTarget({ requestId, proId });
         setIsReviewOpen(true);
+    };
+
+    const handleMessagePro = async (requestId, proId) => {
+        try {
+            const conv = await getOrCreateConversation({
+                requestId,
+                homeownerId: user.id,
+                proId,
+            });
+            navigate(`/messages?conversation=${conv.id}`);
+        } catch (err) {
+            console.error('[HomeownerDashboard] handleMessagePro error:', err);
+            alert('Could not open conversation. Please try again.');
+        }
     };
 
     const fetchProjects = async () => {
@@ -407,26 +424,50 @@ export default function HomeownerDashboard() {
                                                         <div style={{ color: '#4ade80', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                             <CheckCircle size={16} /> Bid Accepted - Contact info revealed
                                                         </div>
-                                                        <button
-                                                            onClick={() => openReviewModal(req.id, bid.pro_id)}
-                                                            style={{
-                                                                background: 'none', border: '1px solid var(--color-primary)', color: 'var(--color-primary)',
-                                                                padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem'
-                                                            }}
-                                                        >
-                                                            Rate Experience
-                                                        </button>
+                                                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                            <button
+                                                                onClick={() => handleMessagePro(req.id, bid.pro_id)}
+                                                                style={{
+                                                                    background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.4)',
+                                                                    color: '#60a5fa', padding: '0.3rem 0.8rem', borderRadius: '4px',
+                                                                    cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem'
+                                                                }}
+                                                            >
+                                                                <MessageSquare size={14} /> Message
+                                                            </button>
+                                                            <button
+                                                                onClick={() => openReviewModal(req.id, bid.pro_id)}
+                                                                style={{
+                                                                    background: 'none', border: '1px solid var(--color-primary)', color: 'var(--color-primary)',
+                                                                    padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.9rem'
+                                                                }}
+                                                            >
+                                                                Rate Experience
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 ) : (
-                                                    <button
-                                                        onClick={() => handleAcceptBid(bid.id, req.id)}
-                                                        className="btn"
-                                                        style={{
-                                                            padding: '0.4rem 1rem', fontSize: '0.8rem', background: '#3b82f6', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        Accept Quote
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                        <button
+                                                            onClick={() => handleMessagePro(req.id, bid.pro_id)}
+                                                            style={{
+                                                                background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.4)',
+                                                                color: '#60a5fa', padding: '0.4rem 0.8rem', borderRadius: '4px',
+                                                                cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.4rem'
+                                                            }}
+                                                        >
+                                                            <MessageSquare size={14} /> Message {bid.pro_name?.split(' ')[0]}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleAcceptBid(bid.id, req.id)}
+                                                            className="btn"
+                                                            style={{
+                                                                padding: '0.4rem 1rem', fontSize: '0.8rem', background: '#3b82f6', border: 'none', color: 'white', borderRadius: '4px', cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            Accept Quote
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         ))}
