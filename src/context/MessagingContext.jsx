@@ -310,6 +310,24 @@ export const MessagingProvider = ({ children }) => {
   }
 
   // -------------------------------------------------------------------------
+  // softDeleteMessage — sets deleted_at; storage file is retained
+  // -------------------------------------------------------------------------
+  async function softDeleteMessage(messageId) {
+    if (!userId) return { error: new Error('Not authenticated') };
+
+    const { error } = await supabase
+      .from('messages')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', messageId)
+      .eq('sender_id', userId); // RLS also enforces this; belt-and-suspenders
+
+    if (error) {
+      console.error('[MessagingContext] softDeleteMessage error:', error);
+    }
+    return { error };
+  }
+
+  // -------------------------------------------------------------------------
   // Context value
   // -------------------------------------------------------------------------
   const value = {
@@ -321,6 +339,7 @@ export const MessagingProvider = ({ children }) => {
     markConversationRead,
     archiveConversation,
     uploadAttachment,
+    softDeleteMessage,
   };
 
   return (

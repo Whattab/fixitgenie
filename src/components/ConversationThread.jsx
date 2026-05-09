@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useMessaging } from '../context/MessagingContext';
+import ImageLightbox from './ImageLightbox';
 import {
   Send, Paperclip, X, MapPin, Clock, AlertTriangle,
-  CheckCheck, Lock, ChevronLeft, Image as ImageIcon,
+  CheckCheck, Lock, ChevronLeft, Image as ImageIcon, Trash2,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -82,8 +83,9 @@ function StatusBadge({ status }) {
 
 // ---------------------------------------------------------------------------
 // Signed-URL image helper (fetches on mount)
+// Accepts optional onClick so a parent can open a lightbox.
 // ---------------------------------------------------------------------------
-function SecureImage({ storagePath, alt }) {
+function SecureImage({ storagePath, alt, onClick }) {
   const [src, setSrc] = useState(null);
   const [err, setErr] = useState(false);
 
@@ -108,7 +110,12 @@ function SecureImage({ storagePath, alt }) {
     <img
       src={src}
       alt={alt || 'Attachment'}
-      style={{ maxWidth: '240px', maxHeight: '240px', borderRadius: '8px', objectFit: 'cover', display: 'block' }}
+      onClick={onClick ? () => onClick(src) : undefined}
+      style={{
+        maxWidth: '240px', maxHeight: '240px', borderRadius: '8px',
+        objectFit: 'cover', display: 'block',
+        cursor: onClick ? 'zoom-in' : undefined,
+      }}
     />
   );
 }
@@ -118,7 +125,7 @@ function SecureImage({ storagePath, alt }) {
 // ---------------------------------------------------------------------------
 export default function ConversationThread({ conversation, onBack }) {
   const { user } = useAuth();
-  const { sendMessage, markConversationRead, uploadAttachment } = useMessaging();
+  const { sendMessage, markConversationRead, uploadAttachment, softDeleteMessage } = useMessaging();
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +136,12 @@ export default function ConversationThread({ conversation, onBack }) {
   const [pickedFile, setPickedFile] = useState(null);  // { file, previewUrl }
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+
+  // Lightbox state
+  const [lightboxSrc, setLightboxSrc] = useState(null);
+
+  // Per-message hover / confirm-delete state: { [msgId]: 'idle' | 'confirm' }
+  const [msgUiState, setMsgUiState] = useState({});
 
   const bottomRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -142,11 +155,11 @@ export default function ConversationThread({ conversation, onBack }) {
   // Fetch messages
   // -------------------------------------------------------------------------
   async function fetchMessages() {
+    // NOTE: we do NOT filter out deleted_at rows — we render them as placeholders.
     const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conversation.id)
-      .is('deleted_at', null)
       .order('created_at', { ascending: true });
 
     if (error) { console.error('[ConversationThread] fetchMessages error:', error); return; }
@@ -229,6 +242,38 @@ export default function ConversationThread({ conversation, onBack }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // -------------------------------------------------------------------------
+  // Soft-delete helpers
+  // -------------------------------------------------------------------------
+  const showTrash = useCallback((msgId) => {
+    setMsgUiState((prev) => ({ ...prev, [msgId]: prev[msgId] === 'confirm' ? 'confirm' : 'hover' }));
+  }, []);
+
+  const hideTrash = useCallback((msgId) => {
+    setMsgUiState((prev) => {
+      if (prev[msgId] === 'confirm') return prev; // keep confirm visible
+      return { ...prev, [msgId]: 'idle' };
+    });
+  }, []);
+
+  const askConfirm = useCallback((msgId) => {
+    setMsgUiState((prev) => ({ ...prev, [msgId]: 'confirm' }));
+  }, []);
+
+  const cancelDelete = useCallback((msgId) => {
+    setMsgUiState((prev) => ({ ...prev, [msgId]: 'idle' }));
+  }, []);
+
+  const confirmDelete = useCallback(async (msgId) => {
+    setMsgUiState((prev) => ({ ...prev, [msgId]: 'idle' }));
+    // Optimistic UI: mark deleted locally immediately
+    setMessages((prev) =>
+      prev.map((m) => m.id === msgId ? { ...m, deleted_at: new Date().toISOString() } : m)
+    );
+    await softDeleteMessage(msgId);
+    // Realtime will also re-fetch and confirm
+  }, [softDeleteMessage]);
 
   // -------------------------------------------------------------------------
   // Send handler
@@ -409,8 +454,12 @@ export default function ConversationThread({ conversation, onBack }) {
         {messages.map((msg, idx) => {
           const isMine = msg.sender_id === user?.id;
           const isSystem = msg.kind === 'system';
+          const isDeleted = !!msg.deleted_at;
           const showDayLabel = idx === 0 || !isSameDay(messages[idx - 1].created_at, msg.created_at);
           const isLastRead = msg.id === lastReadByOther?.id;
+          const uiState = msgUiState[msg.id] ?? 'idle';
+          // Trash icon eligibility: own non-system, not yet deleted
+          const canDelete = isMine && !isSystem && !isDeleted;
 
           return (
             <div key={msg.id}>
@@ -439,40 +488,117 @@ export default function ConversationThread({ conversation, onBack }) {
                   </span>
                 </div>
               ) : (
-                /* Regular message bubble */
-                <div style={{
-                  display: 'flex', flexDirection: 'column',
-                  alignItems: isMine ? 'flex-end' : 'flex-start',
-                }}>
-                  <div style={{
-                    maxWidth: '72%',
-                    background: isMine
-                      ? 'var(--color-primary)'
-                      : 'rgba(255,255,255,0.07)',
-                    border: isMine ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: isMine
-                      ? '18px 18px 4px 18px'
-                      : '18px 18px 18px 4px',
-                    padding: '0.5rem 0.9rem',
-                    color: 'var(--text-main)',
-                    backdropFilter: isMine ? undefined : 'blur(8px)',
-                  }}>
-                    {msg.kind === 'image' && msg.attachment_url && (
-                      <div style={{ marginBottom: msg.body ? '0.5rem' : 0 }}>
-                        <SecureImage storagePath={msg.attachment_url} alt="Attachment" />
+                /* Regular (or deleted) message bubble */
+                <div
+                  style={{
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: isMine ? 'flex-end' : 'flex-start',
+                  }}
+                  onMouseEnter={canDelete ? () => showTrash(msg.id) : undefined}
+                  onMouseLeave={canDelete ? () => hideTrash(msg.id) : undefined}
+                >
+                  {/* Bubble + trash icon wrapper */}
+                  <div style={{ position: 'relative', maxWidth: '72%' }}>
+
+                    {/* Trash icon (hover, own non-deleted messages) */}
+                    {canDelete && (uiState === 'hover') && (
+                      <button
+                        onClick={() => askConfirm(msg.id)}
+                        title="Delete message"
+                        style={{
+                          position: 'absolute', top: '-10px', right: '-10px', zIndex: 2,
+                          background: 'rgba(17,24,39,0.85)', border: '1px solid rgba(239,68,68,0.5)',
+                          borderRadius: '50%', width: '26px', height: '26px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: '#f87171', cursor: 'pointer', padding: 0,
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+
+                    {/* Inline confirm prompt */}
+                    {canDelete && uiState === 'confirm' && (
+                      <div style={{
+                        position: 'absolute', top: '-36px',
+                        right: isMine ? 0 : undefined, left: isMine ? undefined : 0,
+                        background: 'rgba(17,24,39,0.95)',
+                        border: '1px solid rgba(239,68,68,0.4)',
+                        borderRadius: '8px', padding: '0.3rem 0.6rem',
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                        fontSize: '0.78rem', color: 'var(--text-main)',
+                        whiteSpace: 'nowrap', zIndex: 3,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                      }}>
+                        <span>Delete?</span>
+                        <button
+                          onClick={() => confirmDelete(msg.id)}
+                          style={{
+                            background: '#ef4444', border: 'none', color: 'white',
+                            borderRadius: '4px', padding: '0.15rem 0.5rem',
+                            cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600,
+                          }}
+                        >Yes</button>
+                        <button
+                          onClick={() => cancelDelete(msg.id)}
+                          style={{
+                            background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--text-muted)',
+                            borderRadius: '4px', padding: '0.15rem 0.5rem',
+                            cursor: 'pointer', fontSize: '0.78rem',
+                          }}
+                        >Cancel</button>
                       </div>
                     )}
-                    {msg.body && (
-                      <p style={{ margin: 0, fontSize: '0.93rem', lineHeight: 1.45, wordBreak: 'break-word' }}>
-                        {msg.body}
-                      </p>
+
+                    {/* The bubble itself */}
+                    {isDeleted ? (
+                      /* Deleted placeholder */
+                      <div style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.07)',
+                        borderRadius: isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                        padding: '0.5rem 0.9rem',
+                        color: 'var(--text-muted)',
+                        fontStyle: 'italic',
+                        fontSize: '0.88rem',
+                      }}>
+                        {msg.kind === 'image' ? '\uD83D\uDDBC\uFE0F [Photo deleted by sender]' : '[Message deleted]'}
+                      </div>
+                    ) : (
+                      <div style={{
+                        background: isMine
+                          ? 'var(--color-primary)'
+                          : 'rgba(255,255,255,0.07)',
+                        border: isMine ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: isMine
+                          ? '18px 18px 4px 18px'
+                          : '18px 18px 18px 4px',
+                        padding: '0.5rem 0.9rem',
+                        color: 'var(--text-main)',
+                        backdropFilter: isMine ? undefined : 'blur(8px)',
+                      }}>
+                        {msg.kind === 'image' && msg.attachment_url && (
+                          <div style={{ marginBottom: msg.body ? '0.5rem' : 0 }}>
+                            <SecureImage
+                              storagePath={msg.attachment_url}
+                              alt="Attachment"
+                              onClick={(signedSrc) => setLightboxSrc(signedSrc)}
+                            />
+                          </div>
+                        )}
+                        {msg.body && (
+                          <p style={{ margin: 0, fontSize: '0.93rem', lineHeight: 1.45, wordBreak: 'break-word' }}>
+                            {msg.body}
+                          </p>
+                        )}
+                        <div style={{
+                          fontSize: '0.68rem', color: isMine ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)',
+                          textAlign: 'right', marginTop: '0.25rem',
+                        }}>
+                          {formatTime(msg.created_at)}
+                        </div>
+                      </div>
                     )}
-                    <div style={{
-                      fontSize: '0.68rem', color: isMine ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)',
-                      textAlign: 'right', marginTop: '0.25rem',
-                    }}>
-                      {formatTime(msg.created_at)}
-                    </div>
                   </div>
 
                   {/* Seen receipt under last-read sent message */}
@@ -492,6 +618,15 @@ export default function ConversationThread({ conversation, onBack }) {
         })}
         <div ref={bottomRef} />
       </div>
+
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <ImageLightbox
+          src={lightboxSrc}
+          alt="Full size attachment"
+          onClose={() => setLightboxSrc(null)}
+        />
+      )}
 
       {/* ── Frozen banner ── */}
       {frozen && (
