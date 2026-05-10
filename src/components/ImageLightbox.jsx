@@ -27,19 +27,33 @@ export default function ImageLightbox({ src, alt, onClose }) {
     };
   }, [onClose]);
 
-  function handleDownload() {
-    const a = document.createElement('a');
-    a.href = src;
-    // Extract a filename from the URL or fall back to a generic name
-    const parts = src.split('/');
-    const filename = parts[parts.length - 1].split('?')[0] || 'image.jpg';
-    a.download = filename;
-    a.rel = 'noopener noreferrer';
-    // For cross-origin signed URLs the browser may still open in a new tab;
-    // this is the best we can do without a server-side proxy.
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  async function handleDownload() {
+    try {
+      const response = await fetch(src);
+      if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      // Try to get a sensible filename
+      const parts = src.split('/');
+      let filename = parts[parts.length - 1].split('?')[0] || 'image.jpg';
+      if (!/\.(jpg|jpeg|png|heic|webp|gif)$/i.test(filename)) {
+        filename += '.jpg';
+      }
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Free the blob URL after the browser has started the download
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch (err) {
+      console.error('[ImageLightbox] download failed:', err);
+      alert('Could not download the image. Please try again.');
+    }
   }
 
   return createPortal(
