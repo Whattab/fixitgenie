@@ -131,6 +131,11 @@ export default function ConversationThread({ conversation, onBack }) {
   const { user } = useAuth();
   const { sendMessage, markConversationRead, uploadAttachment, softDeleteMessage } = useMessaging();
 
+  // Derived from props — must be declared before any useState that references them
+  const isHomeowner = conversation.homeowner_id === user?.id;
+  const otherParty = isHomeowner ? conversation.pro : conversation.homeowner;
+  const sr = conversation.service_request;
+
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bid, setBid] = useState(null);
@@ -151,7 +156,7 @@ export default function ConversationThread({ conversation, onBack }) {
   const fileInputRef = useRef(null);
   const channelRef = useRef(null);
 
-  // Banner action state
+  // Banner action state — sr is defined above so this is safe
   const [srStatus, setSrStatus] = useState(sr?.status ?? 'open');
 
   // ReviewModal state
@@ -161,10 +166,6 @@ export default function ConversationThread({ conversation, onBack }) {
   const [contactOpen, setContactOpen] = useState(false);
   // 'homeowner' = pro viewing homeowner info; 'pro' = homeowner viewing pro info
   const [contactMode, setContactMode] = useState('pro');
-
-  const isHomeowner = conversation.homeowner_id === user?.id;
-  const otherParty = isHomeowner ? conversation.pro : conversation.homeowner;
-  const sr = conversation.service_request;
 
   // -------------------------------------------------------------------------
   // Fetch messages
