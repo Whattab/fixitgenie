@@ -3,9 +3,13 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useMessaging } from '../context/MessagingContext';
 import ImageLightbox from './ImageLightbox';
+import ReviewModal from './ReviewModal';
+import ContactInfoModal from './ContactInfoModal';
+import { acceptBid, declineBid, markRequestComplete } from '../lib/jobActions';
 import {
   Send, Paperclip, X, MapPin, Clock, AlertTriangle,
   CheckCheck, Lock, ChevronLeft, Image as ImageIcon, Trash2,
+  CheckCircle, XCircle, Phone, Star,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -147,6 +151,17 @@ export default function ConversationThread({ conversation, onBack }) {
   const fileInputRef = useRef(null);
   const channelRef = useRef(null);
 
+  // Banner action state
+  const [srStatus, setSrStatus] = useState(sr?.status ?? 'open');
+
+  // ReviewModal state
+  const [reviewOpen, setReviewOpen] = useState(false);
+
+  // ContactInfoModal state
+  const [contactOpen, setContactOpen] = useState(false);
+  // 'homeowner' = pro viewing homeowner info; 'pro' = homeowner viewing pro info
+  const [contactMode, setContactMode] = useState('pro');
+
   const isHomeowner = conversation.homeowner_id === user?.id;
   const otherParty = isHomeowner ? conversation.pro : conversation.homeowner;
   const sr = conversation.service_request;
@@ -191,6 +206,7 @@ export default function ConversationThread({ conversation, onBack }) {
     }
 
     setBid(data);
+    setSrStatus(sr?.status ?? 'open'); // keep in sync with conversation prop
 
     if (data.status === 'rejected') {
       setFrozen(true);
@@ -202,6 +218,49 @@ export default function ConversationThread({ conversation, onBack }) {
       setFrozen(false);
       setFrozenReason('');
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // Re-fetch bid + request status after a banner action so the UI updates
+  // -------------------------------------------------------------------------
+  async function refreshBannerState() {
+    if (!sr?.id) return;
+
+    const [{ data: bidData }, { data: reqData }] = await Promise.all([
+      supabase
+        .from('bids')
+        .select('id, status, price_estimate')
+        .eq('request_id', sr.id)
+        .eq('pro_id', conversation.pro_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('service_requests')
+        .select('status')
+        .eq('id', sr.id)
+        .maybeSingle(),
+    ]);
+
+    if (bidData) {
+      setBid(bidData);
+      const newSrStatus = reqData?.status ?? srStatus;
+      setSrStatus(newSrStatus);
+
+      if (bidData.status === 'rejected') {
+        setFrozen(true);
+        setFrozenReason('This bid was rejected — read-only.');
+      } else if (newSrStatus === 'completed') {
+        setFrozen(true);
+        setFrozenReason('Job marked completed — archived 30 days after job completion — read-only.');
+      } else {
+        setFrozen(false);
+        setFrozenReason('');
+      }
+    }
+
+    // Also re-fetch messages so the system message from the trigger appears
+    fetchMessages();
   }
 
   // -------------------------------------------------------------------------
@@ -267,13 +326,18 @@ export default function ConversationThread({ conversation, onBack }) {
 
   const confirmDelete = useCallback(async (msgId) => {
     setMsgUiState((prev) => ({ ...prev, [msgId]: 'idle' }));
-    // Optimistic UI: mark deleted locally immediately
-    setMessages((prev) =>
-      prev.map((m) => m.id === msgId ? { ...m, deleted_at: new Date().toISOString() } : m)
-    );
-    await softDeleteMessage(msgId);
-    // Realtime will also re-fetch and confirm
-  }, [softDeleteMessage]);
+    const { wasDeleted } = await softDeleteMessage(msgId);
+    if (wasDeleted) {
+      // Optimistic UI: mark deleted locally right away (realtime will confirm)
+      setMessages((prev) =>
+        prev.map((m) => m.id === msgId ? { ...m, deleted_at: new Date().toISOString() } : m)
+      );
+    } else {
+      // Not the sender — update was a no-op. Re-fetch to restore real state.
+      console.warn('[ConversationThread] softDelete: not the sender or already deleted — skipping.');
+      fetchMessages();
+    }
+  }, [softDeleteMessage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------------
   // Send handler
@@ -398,6 +462,7 @@ export default function ConversationThread({ conversation, onBack }) {
           padding: '0.75rem 1rem',
           flexShrink: 0,
         }}>
+          {/* Top row: meta chips */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
             <span style={{
               background: 'var(--color-primary-dark)', color: '#fff',
@@ -415,7 +480,7 @@ export default function ConversationThread({ conversation, onBack }) {
                 <Clock size={12} /> {sr.urgency}
               </span>
             )}
-            <StatusBadge status={sr.status} />
+            <StatusBadge status={srStatus} />
             {bid && (
               <>
                 <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>·</span>
@@ -426,9 +491,120 @@ export default function ConversationThread({ conversation, onBack }) {
               </>
             )}
           </div>
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+
+          {/* Second row: other party */}
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: bid ? '0.65rem' : 0 }}>
             Conversation with <strong style={{ color: 'var(--text-main)' }}>{otherParty?.name ?? 'Unknown'}</strong>
           </div>
+
+          {/* ── Action buttons row ── */}
+          {bid && (() => {
+            const btnBase = {
+              border: 'none', borderRadius: '6px', padding: '0.35rem 0.75rem',
+              fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+            };
+            const mutedNote = (text) => (
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>{text}</span>
+            );
+
+            if (isHomeowner) {
+              if (bid.status === 'pending') {
+                return (
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      style={{ ...btnBase, background: 'rgba(34,197,94,0.15)', color: '#4ade80', border: '1px solid rgba(34,197,94,0.4)' }}
+                      onClick={async () => {
+                        if (!confirm('Accept this quote? The professional will receive your contact information.')) return;
+                        const { success, error } = await acceptBid({ bidId: bid.id, requestId: sr.id });
+                        if (success) {
+                          await refreshBannerState();
+                        } else {
+                          alert('Failed to accept bid: ' + error);
+                        }
+                      }}
+                    >
+                      <CheckCircle size={14} /> Accept Quote
+                    </button>
+                    <button
+                      style={{ ...btnBase, background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.35)' }}
+                      onClick={async () => {
+                        if (!confirm('Decline this bid? The conversation will become read-only.')) return;
+                        const { success, error } = await declineBid({ bidId: bid.id });
+                        if (success) {
+                          await refreshBannerState();
+                        } else {
+                          alert('Failed to decline bid: ' + error);
+                        }
+                      }}
+                    >
+                      <XCircle size={14} /> Decline
+                    </button>
+                  </div>
+                );
+              }
+
+              if (bid.status === 'accepted') {
+                return (
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button
+                      style={{ ...btnBase, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.4)' }}
+                      onClick={() => { setContactMode('pro'); setContactOpen(true); }}
+                    >
+                      <Phone size={14} /> View Pro Contact
+                    </button>
+                    {srStatus === 'assigned' && (
+                      <button
+                        style={{ ...btnBase, background: 'rgba(168,85,247,0.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,0.4)' }}
+                        onClick={async () => {
+                          if (!confirm('Mark this job as complete?')) return;
+                          const { success, error } = await markRequestComplete({ requestId: sr.id });
+                          if (success) {
+                            await refreshBannerState();
+                          } else {
+                            alert('Failed to mark complete: ' + error);
+                          }
+                        }}
+                      >
+                        <CheckCircle size={14} /> Mark Job Complete
+                      </button>
+                    )}
+                    <button
+                      style={{ ...btnBase, background: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.35)' }}
+                      onClick={() => setReviewOpen(true)}
+                    >
+                      <Star size={14} /> Rate Experience
+                    </button>
+                  </div>
+                );
+              }
+
+              if (bid.status === 'rejected') {
+                return mutedNote('This bid was declined.');
+              }
+            } else {
+              // PRO view
+              if (bid.status === 'pending') {
+                return mutedNote('Waiting for the homeowner\'s response…');
+              }
+              if (bid.status === 'accepted') {
+                return (
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      style={{ ...btnBase, background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.4)' }}
+                      onClick={() => { setContactMode('homeowner'); setContactOpen(true); }}
+                    >
+                      <Phone size={14} /> View Homeowner Contact
+                    </button>
+                  </div>
+                );
+              }
+              if (bid.status === 'rejected') {
+                return mutedNote('Bid declined.');
+              }
+            }
+            return null;
+          })()}
         </div>
       )}
 
@@ -758,6 +934,24 @@ export default function ConversationThread({ conversation, onBack }) {
           <Lock size={14} /> This conversation is read-only.
         </div>
       )}
+
+      {/* ── ReviewModal ── */}
+      <ReviewModal
+        isOpen={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        requestId={sr?.id}
+        proId={conversation.pro_id}
+        onReviewSubmitted={() => setReviewOpen(false)}
+      />
+
+      {/* ── ContactInfoModal ── */}
+      <ContactInfoModal
+        isOpen={contactOpen}
+        onClose={() => setContactOpen(false)}
+        mode={contactMode}
+        requestId={sr?.id}
+        proId={conversation.pro_id}
+      />
     </div>
   );
 }

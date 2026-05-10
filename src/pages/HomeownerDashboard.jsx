@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useService } from '../context/ServiceContext';
 import { useMessaging } from '../context/MessagingContext';
 import { supabase } from '../lib/supabaseClient';
+import { acceptBid } from '../lib/jobActions';
 import { Clock, MapPin, DollarSign, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, Shield, Star, MessageSquare } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import ReviewModal from '../components/ReviewModal';
@@ -123,29 +124,12 @@ export default function HomeownerDashboard() {
 
     const handleAcceptBid = async (bidId, requestId) => {
         if (!confirm("Are you sure you want to accept this bid? The professional will receive your contact information.")) return;
-
-        try {
-            const { error: bidError } = await supabase
-                .from('bids')
-                .update({ status: 'accepted' })
-                .eq('id', bidId);
-
-            if (bidError) throw bidError;
-
-            const { error: reqError } = await supabase
-                .from('service_requests')
-                // .update({ status: 'assigned' }) // Keep as assigned
-                .update({ status: 'assigned' })
-                .eq('id', requestId);
-
-            if (reqError) throw reqError;
-
+        const { success, error } = await acceptBid({ bidId, requestId });
+        if (success) {
             alert("Bid accepted! Job started. Contact info is now shared.");
             fetchMyRequests();
-
-        } catch (error) {
-            console.error("Error accepting bid:", error);
-            alert("Failed to accept bid: " + error.message);
+        } else {
+            alert("Failed to accept bid: " + error);
         }
     };
 
