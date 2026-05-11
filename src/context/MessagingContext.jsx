@@ -182,6 +182,43 @@ export const MessagingProvider = ({ children }) => {
   }, [userId]);
 
   // -------------------------------------------------------------------------
+  // last_seen_at heartbeat — updates every 60 s while tab is visible.
+  // The Edge Function uses this to decide whether to skip emailing the user.
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    if (!userId) return;
+
+    async function pingLastSeen() {
+      if (document.visibilityState !== 'visible') return;
+      const { error } = await supabase
+        .from('profiles')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (error) {
+        console.warn('[MessagingContext] last_seen_at heartbeat error:', error);
+      }
+    }
+
+    // Fire immediately on mount / login
+    pingLastSeen();
+
+    const intervalId = setInterval(pingLastSeen, 60_000);
+
+    // Pause/resume based on tab visibility
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        pingLastSeen();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [userId]);
+
+  // -------------------------------------------------------------------------
   // getOrCreateConversation
   // -------------------------------------------------------------------------
   async function getOrCreateConversation({ requestId, homeownerId, proId }) {
@@ -313,18 +350,25 @@ export const MessagingProvider = ({ children }) => {
   // softDeleteMessage — sets deleted_at; storage file is retained
   // -------------------------------------------------------------------------
   async function softDeleteMessage(messageId) {
-    if (!userId) return { error: new Error('Not authenticated') };
+    if (!userId) return { error: new Error('Not authenticated'), wasDeleted: false };
 
-    const { error } = await supabase
+    // Use .select() so we can check how many rows were actually updated.
+    // If sender_id doesn't match (non-sender calling this), Supabase updates
+    // 0 rows and returns an empty array — no error, but wasDeleted = false.
+    const { data, error } = await supabase
       .from('messages')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', messageId)
-      .eq('sender_id', userId); // RLS also enforces this; belt-and-suspenders
+      .eq('sender_id', userId) // belt-and-suspenders; RLS also enforces this
+      .select('id');
 
     if (error) {
       console.error('[MessagingContext] softDeleteMessage error:', error);
+      return { error, wasDeleted: false };
     }
-    return { error };
+
+    const wasDeleted = Array.isArray(data) && data.length > 0;
+    return { error: null, wasDeleted };
   }
 
   // -------------------------------------------------------------------------
