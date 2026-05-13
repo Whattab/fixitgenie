@@ -151,16 +151,16 @@ export default function ContactInfoModal({ isOpen, onClose, mode, requestId, pro
           <>
             {mode === 'homeowner' ? (
               <>
-                <InfoRow icon={User}   label="Name"    value={info.contact_name} />
-                <InfoRow icon={Mail}   label="Email"   value={info.contact_email} />
-                <InfoRow icon={Phone}  label="Phone"   value={info.contact_phone} />
+                <InfoRow icon={User} label="Name" value={info.contact_name} />
+                <InfoRow icon={Mail} label="Email" value={info.contact_email} />
+                <InfoRow icon={Phone} label="Phone" value={info.contact_phone} />
                 <InfoRow icon={MapPin} label="Address" value={info.exact_address} />
               </>
             ) : (
               <>
-                <InfoRow icon={User}   label="Name"  value={info.name} />
-                <InfoRow icon={Mail}   label="Email" value={info.email} />
-                <InfoRow icon={Phone}  label="Phone" value={info.phone} />
+                <InfoRow icon={User} label="Name" value={info.name} />
+                <InfoRow icon={Mail} label="Email" value={info.email} />
+                <InfoRow icon={Phone} label="Phone" value={info.phone} />
                 <InfoRow
                   icon={MapPin}
                   label="Location"
