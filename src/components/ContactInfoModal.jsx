@@ -5,21 +5,23 @@ import { X, Phone, Mail, MapPin, User } from 'lucide-react';
 
 /**
  * InfoRow — module-level so ESLint correctly resolves the JSX tag name.
- * Renders one labelled row with an icon.
- */
-/**
- * InfoRow — module-level so ESLint correctly resolves the JSX tag name.
- * Renders one labelled row with an icon.
+ * Renders one labelled row with an icon. Empty values show "Not provided".
  */
 function InfoRow({ icon, label, value }) {
-  if (!value) return null;
-  const Ic = icon; // alias to uppercase so JSX can use it as a component
+  const Ic = icon;
+  const display = value || 'Not provided';
+  const isEmpty = !value;
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginBottom: '0.9rem' }}>
       <Ic size={16} style={{ marginTop: '0.15rem', flexShrink: 0, color: 'var(--color-primary-light)' }} />
       <div>
         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-        <div style={{ fontSize: '0.97rem', color: 'var(--text-main)', fontWeight: 500 }}>{value}</div>
+        <div style={{
+          fontSize: '0.97rem',
+          color: isEmpty ? 'var(--text-muted)' : 'var(--text-main)',
+          fontStyle: isEmpty ? 'italic' : 'normal',
+          fontWeight: isEmpty ? 400 : 500,
+        }}>{display}</div>
       </div>
     </div>
   );

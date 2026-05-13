@@ -164,9 +164,7 @@ export const MessagingProvider = ({ children }) => {
         }
       );
 
-      channel.subscribe((status) => {
-        console.log('[MessagingContext] Realtime channel status:', status);
-      });
+      channel.subscribe();
 
       channelRef.current = channel;
     });
