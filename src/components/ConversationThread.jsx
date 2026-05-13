@@ -6,10 +6,11 @@ import ImageLightbox from './ImageLightbox';
 import ReviewModal from './ReviewModal';
 import ContactInfoModal from './ContactInfoModal';
 import { acceptBid, declineBid, markRequestComplete } from '../lib/jobActions';
+import { downloadTranscript } from '../lib/exportTranscript';
 import {
   Send, Paperclip, X, MapPin, Clock, AlertTriangle,
   CheckCheck, Lock, ChevronLeft, Image as ImageIcon, Trash2,
-  CheckCircle, XCircle, Phone, Star,
+  CheckCircle, XCircle, Phone, Star, Download,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -463,7 +464,7 @@ export default function ConversationThread({ conversation, onBack }) {
           padding: '0.75rem 1rem',
           flexShrink: 0,
         }}>
-          {/* Top row: meta chips */}
+          {/* Top row: meta chips + Export button */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
             <span style={{
               background: 'var(--color-primary-dark)', color: '#fff',
@@ -491,6 +492,34 @@ export default function ConversationThread({ conversation, onBack }) {
                 <StatusBadge status={bid.status} />
               </>
             )}
+
+            {/* Export button — right-aligned, always visible, utility style */}
+            <button
+              disabled={loading || messages.length === 0}
+              onClick={() => downloadTranscript({
+                conversation,
+                messages,
+                currentUserName: user?.name ?? user?.email ?? 'Unknown',
+              })}
+              title="Download transcript as .txt"
+              style={{
+                marginLeft: 'auto',
+                display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '6px', padding: '0.25rem 0.6rem',
+                fontSize: '0.75rem', fontWeight: 600,
+                color: (loading || messages.length === 0)
+                  ? 'var(--text-muted)'
+                  : 'var(--text-main)',
+                cursor: (loading || messages.length === 0) ? 'not-allowed' : 'pointer',
+                opacity: (loading || messages.length === 0) ? 0.45 : 1,
+                transition: 'opacity 0.15s',
+                flexShrink: 0,
+              }}
+            >
+              <Download size={13} /> Export
+            </button>
           </div>
 
           {/* Second row: other party */}
