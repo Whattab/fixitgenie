@@ -366,7 +366,10 @@ const ProOnboarding = () => {
                             <label>Profile photo *</label>
                             <div className="upload-box dashed">
                                 {formData.profilePhoto ? (
-                                    <img src={formData.profilePhoto} alt="Profile" className="preview-img" style={{maxHeight:'100px', borderRadius:'8px'}} />
+                                    <div className="file-success" style={{flexDirection: 'column', padding: '1rem'}}>
+                                        <img src={formData.profilePhoto} alt="Profile" style={{maxHeight:'120px', borderRadius:'8px', marginBottom: '1rem', border: '1px solid rgba(255,255,255,0.2)'}} />
+                                        <button type="button" onClick={() => setFormData({...formData, profilePhoto: null})} className="btn" style={{background: 'rgba(239, 68, 68, 0.2)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.5)', fontSize: '0.85rem'}}>Remove & Re-upload</button>
+                                    </div>
                                 ) : (
                                     <div className="upload-content">
                                         <Upload size={32} />
