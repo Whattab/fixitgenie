@@ -1,7 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useMessaging } from '../context/MessagingContext';
-import { LogOut, User, Shield, Home as HomeIcon, MessageSquare, Wrench, Search, Info } from 'lucide-react';
+import { LogOut, User, Shield, Home as HomeIcon, MessageSquare, Wrench, Search, Info, UserCircle } from 'lucide-react';
 
 const Header = () => {
     const { user, logout } = useAuth();
@@ -95,9 +95,15 @@ const Header = () => {
                                     Pro Dashboard
                                 </Link>
                             ) : (
-                                <Link to="/my-requests" style={{ color: 'var(--text-main)', marginRight: '0.5rem', fontWeight: '500' }}>
-                                    My Requests
-                                </Link>
+                                <>
+                                    <Link to="/my-requests" style={{ color: 'var(--text-main)', marginRight: '0.5rem', fontWeight: '500' }}>
+                                        My Requests
+                                    </Link>
+                                    <Link to="/my-profile" style={{ color: 'var(--text-main)', marginRight: '0.5rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        <UserCircle size={16} />
+                                        My Profile
+                                    </Link>
+                                </>
                             )}
                             <button
                                 onClick={handleLogout}

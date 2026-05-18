@@ -16,6 +16,7 @@ import Professionals from './pages/Professionals';
 import PublicProProfile from './pages/PublicProProfile';
 import ProOnboarding from './pages/ProOnboarding';
 import Messages from './pages/Messages';
+import HomeownerProfile from './pages/HomeownerProfile';
 import Header from './components/Header';
 import { AuthProvider } from './context/AuthContext';
 import { ServiceProvider } from './context/ServiceContext';
@@ -47,6 +48,7 @@ function App() {
                 <Route path="/about" element={<About />} />
                 <Route path="/verification" element={<Verification />} />
                 <Route path="/messages" element={<Messages />} />
+                <Route path="/my-profile" element={<HomeownerProfile />} />
               </Routes>
             </main>
           </Router>
