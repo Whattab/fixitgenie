@@ -18,7 +18,7 @@ const US_STATES = [
 // ─── component ────────────────────────────────────────────────────────────────
 const HomeownerProfile = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const [form, setForm] = useState({
     name: '',
@@ -143,6 +143,9 @@ const HomeownerProfile = () => {
       console.error('Profile save error:', error);
       showToast('error', 'Failed to save: ' + error.message);
     } else {
+      // Refresh the in-memory user so the header avatar + welcome name
+      // update immediately, no page refresh needed.
+      await refreshUser();
       showToast('success', 'Profile saved successfully!');
     }
   };

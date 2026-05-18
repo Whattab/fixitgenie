@@ -204,8 +204,22 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
     };
 
+    // Re-fetch the current user's profile from the DB and update in-memory state.
+    // Call this after any place the user edits their own profile so the rest of
+    // the UI (header avatar, welcome name, etc.) reflects the change without a refresh.
+    const refreshUser = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+        setUser({ ...session.user, ...profile });
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, signup, logout, deleteUser, promoteUser, demoteUser, resetPassword, updatePassword, loading, allUsers, fetchAllUsers }}>
+        <AuthContext.Provider value={{ user, login, signup, logout, deleteUser, promoteUser, demoteUser, resetPassword, updatePassword, refreshUser, loading, allUsers, fetchAllUsers }}>
             {!loading && children}
         </AuthContext.Provider>
     );
