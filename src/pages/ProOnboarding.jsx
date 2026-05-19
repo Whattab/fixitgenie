@@ -7,7 +7,7 @@ import './ProOnboarding.css';
 
 const ProOnboarding = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
     
     // Redirect if not logged in or not a pro, and fetch existing profile data
     useEffect(() => {
@@ -253,6 +253,9 @@ const ProOnboarding = () => {
 
             if (Object.keys(updatePayload).length > 0) {
                 await supabase.from('profiles').update(updatePayload).eq('id', user.id);
+                // Refresh in-memory user so header avatar + welcome name
+                // reflect the change immediately on the next page.
+                await refreshUser();
             }
 
             alert("Onboarding Complete! Your profile is pending review.");
