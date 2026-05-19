@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { House, Wrench, Check, Eye, EyeOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Signup.css';
 
@@ -226,6 +226,12 @@ const Signup = () => {
                                 </button>
                             </div>
                             <button type="submit" className="btn-primary">Create Account</button>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.75rem', textAlign: 'center', lineHeight: 1.4 }}>
+                                By creating an account, you agree to our{' '}
+                                <Link to="/terms" style={{ color: 'var(--color-primary-light)' }}>Terms of Service</Link>
+                                {' '}and{' '}
+                                <Link to="/privacy" style={{ color: 'var(--color-primary-light)' }}>Privacy Policy</Link>.
+                            </p>
                         </form>
                     )}
                 </div>
@@ -292,6 +298,12 @@ const Signup = () => {
                                 </button>
                             </div>
                             <button type="submit" className="btn-primary">Create Account</button>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.75rem', textAlign: 'center', lineHeight: 1.4 }}>
+                                By creating an account, you agree to our{' '}
+                                <Link to="/terms" style={{ color: 'var(--color-primary-light)' }}>Terms of Service</Link>
+                                {' '}and{' '}
+                                <Link to="/privacy" style={{ color: 'var(--color-primary-light)' }}>Privacy Policy</Link>.
+                            </p>
                         </form>
                     )}
                 </div>
