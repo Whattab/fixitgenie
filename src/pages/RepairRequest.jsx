@@ -41,7 +41,6 @@ export default function RepairRequest() {
         contactMethod: ''
     });
 
-    const [mediaFile, setMediaFile] = useState(null);
     const [estimate, setEstimate] = useState(null);
     const [isCalculatingEstimate, setIsCalculatingEstimate] = useState(false);
     const [isFetchingZip, setIsFetchingZip] = useState(false);
@@ -186,17 +185,14 @@ export default function RepairRequest() {
         }
     };
 
-    const handleFileChange = (e) => {
-        setMediaFile(e.target.files[0]);
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Use the context to add the request
+        // Use the context to add the request.
+        // Photo attachments are NOT collected here — homeowners can share
+        // photos in the chat with a pro after a bid is placed.
         const result = await addRequest({
             ...formData,
-            // In a real app we'd upload mediaFile here
         });
 
         if (result.success) {
@@ -284,13 +280,8 @@ export default function RepairRequest() {
                                 fontSize: '1rem', fontFamily: 'inherit'
                             }}
                         />
-                        {/* Media Upload */}
-                        <div style={{ marginTop: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}>
-                                Upload photos or videos (optional)
-                            </label>
-                            <input type="file" accept="image/*,video/*" onChange={handleFileChange} style={{ color: 'var(--text-muted)' }} />
-                        </div>
+                        {/* Photo attachments removed — homeowners can share photos
+                            with a pro through the chat after a bid is placed. */}
                     </div>
 
                     {/* Property Details Grid */}

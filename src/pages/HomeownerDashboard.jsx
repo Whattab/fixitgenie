@@ -4,7 +4,7 @@ import { useService } from '../context/ServiceContext';
 import { useMessaging } from '../context/MessagingContext';
 import { supabase } from '../lib/supabaseClient';
 import { acceptBid } from '../lib/jobActions';
-import { Clock, MapPin, DollarSign, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, Shield, Star, MessageSquare } from 'lucide-react';
+import { Clock, MapPin, DollarSign, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, Shield, Star, MessageSquare, Pencil } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import ReviewModal from '../components/ReviewModal';
 import RequestQnA from '../components/RequestQnA';
@@ -329,16 +329,30 @@ export default function HomeownerDashboard() {
                                     </div>
                                 </div>
                                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
-                                    <button
-                                        onClick={() => handleDeleteRequest(req.id)}
-                                        title="Delete Request"
-                                        style={{
-                                            background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '50%', width: '30px', height: '30px',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444'
-                                        }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                        {(req.status === 'open' || !req.status) && (
+                                            <Link
+                                                to={`/edit-request/${req.id}`}
+                                                title="Edit Request"
+                                                style={{
+                                                    background: 'rgba(59, 130, 246, 0.1)', border: 'none', borderRadius: '50%', width: '30px', height: '30px',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#60a5fa', textDecoration: 'none'
+                                                }}
+                                            >
+                                                <Pencil size={15} />
+                                            </Link>
+                                        )}
+                                        <button
+                                            onClick={() => handleDeleteRequest(req.id)}
+                                            title="Delete Request"
+                                            style={{
+                                                background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '50%', width: '30px', height: '30px',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#ef4444'
+                                            }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                     <div>
                                         <div style={{ fontSize: '2rem', fontWeight: 'bold', color: req.bids?.length > 0 ? '#4ade80' : 'var(--text-muted)' }}>
                                             {req.bids?.length || 0}

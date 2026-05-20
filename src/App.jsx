@@ -19,6 +19,7 @@ import Messages from './pages/Messages';
 import HomeownerProfile from './pages/HomeownerProfile';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import TermsOfService from './pages/TermsOfService';
+import EditRequest from './pages/EditRequest';
 import Header from './components/Header';
 import { AuthProvider } from './context/AuthContext';
 import { ServiceProvider } from './context/ServiceContext';
@@ -53,6 +54,7 @@ function App() {
                 <Route path="/my-profile" element={<HomeownerProfile />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/edit-request/:id" element={<EditRequest />} />
               </Routes>
             </main>
           </Router>
