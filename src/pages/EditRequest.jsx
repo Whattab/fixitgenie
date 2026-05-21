@@ -35,11 +35,14 @@ export default function EditRequest() {
     category: '',
     details: '',
     urgency: '',
-    city_state: '',
+    city_state: '',  // City, State only — no ZIP. Combined on save.
+    zip: '',         // 5-digit ZIP. Combined into city_state on save.
     service_goal: '',
     start_time: '',
     service_time: '',
   });
+
+  const [isFetchingZip, setIsFetchingZip] = useState(false);
 
   // ─── Options (mirror RepairRequest.jsx) ────────────────────────────────────
   const categories = [
@@ -116,11 +119,22 @@ export default function EditRequest() {
     }
 
     setRequest(data);
+
+    // Parse the stored city_state (format: "City, ST 12345" or just "12345").
+    // Split out the trailing 5-digit ZIP so we can pre-fill BOTH inputs.
+    const stored = (data.city_state || '').trim();
+    const zipMatch = stored.match(/(\d{5})\s*$/);
+    const extractedZip = zipMatch ? zipMatch[1] : '';
+    const cityStateOnly = zipMatch
+      ? stored.slice(0, zipMatch.index).trim().replace(/[,\s]+$/, '')
+      : stored;
+
     setForm({
       category: data.category || '',
       details: data.details || '',
       urgency: data.urgency || '',
-      city_state: data.city_state || '',
+      city_state: cityStateOnly,
+      zip: extractedZip,
       service_goal: data.service_goal || '',
       start_time: data.start_time || '',
       service_time: data.service_time || '',
@@ -151,11 +165,20 @@ export default function EditRequest() {
     setSaving(true);
     setToast(null);
 
+    // Combine city_state and zip back into a single field that matches the
+    // original create-form storage format: "City, ST 12345" — or just one
+    // of them if the other is missing.
+    const cityStateClean = form.city_state.trim();
+    const zipClean = form.zip.trim();
+    const combinedLocation = cityStateClean && zipClean
+      ? `${cityStateClean} ${zipClean}`
+      : (cityStateClean || zipClean);
+
     const payload = {
       category: form.category,
       details: form.details.trim(),
       urgency: form.urgency,
-      city_state: form.city_state.trim(),
+      city_state: combinedLocation,
       service_goal: form.service_goal,
       start_time: form.start_time,
       service_time: form.service_time,
@@ -284,19 +307,59 @@ export default function EditRequest() {
           </select>
         </div>
 
-        {/* Location */}
+        {/* Location: ZIP triggers auto-lookup of city + state */}
         <div style={styles.field}>
-          <label style={styles.label}>City, State &amp; ZIP</label>
+          <label style={styles.label}>
+            ZIP code
+            {isFetchingZip && (
+              <span style={{ marginLeft: '0.5rem', fontSize: '0.78rem', color: 'var(--color-primary-light)', fontWeight: 400 }}>
+                Looking up…
+              </span>
+            )}
+          </label>
+          <input
+            type="text"
+            value={form.zip}
+            onChange={async (e) => {
+              const value = e.target.value.replace(/\D/g, '').slice(0, 5);
+              setForm((prev) => ({ ...prev, zip: value }));
+              if (/^\d{5}$/.test(value)) {
+                setIsFetchingZip(true);
+                try {
+                  const response = await fetch(`https://api.zippopotam.us/us/${value}`);
+                  if (response.ok) {
+                    const data = await response.json();
+                    if (data.places && data.places.length > 0) {
+                      const place = data.places[0];
+                      const newCityState = `${place['place name']}, ${place['state abbreviation']}`;
+                      setForm((prev) => ({ ...prev, city_state: newCityState }));
+                    }
+                  }
+                } catch (err) {
+                  console.error('ZIP lookup failed:', err);
+                } finally {
+                  setIsFetchingZip(false);
+                }
+              }
+            }}
+            placeholder="5-digit ZIP"
+            style={styles.input}
+            maxLength={5}
+          />
+          <small style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+            Changing the ZIP changes which pros see your request.
+          </small>
+        </div>
+
+        <div style={styles.field}>
+          <label style={styles.label}>City &amp; State</label>
           <input
             type="text"
             value={form.city_state}
             onChange={(e) => setForm({ ...form, city_state: e.target.value })}
-            placeholder="e.g. Houston, TX 77001"
+            placeholder={isFetchingZip ? 'Loading…' : 'Auto-fills from ZIP, or enter manually'}
             style={styles.input}
           />
-          <small style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-            Include the ZIP code — it affects which pros see this request.
-          </small>
         </div>
 
         {/* Service goal */}
