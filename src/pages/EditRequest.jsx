@@ -44,6 +44,29 @@ export default function EditRequest() {
 
   const [isFetchingZip, setIsFetchingZip] = useState(false);
 
+  // Look up city + state for a 5-digit US ZIP via the free zippopotam.us API.
+  // Used both from the onChange handler (user types a ZIP) AND from the
+  // on-mount effect (request was saved with only a ZIP, no city/state).
+  async function lookupZip(zipValue) {
+    if (!/^\d{5}$/.test(zipValue)) return;
+    setIsFetchingZip(true);
+    try {
+      const response = await fetch(`https://api.zippopotam.us/us/${zipValue}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.places && data.places.length > 0) {
+          const place = data.places[0];
+          const newCityState = `${place['place name']}, ${place['state abbreviation']}`;
+          setForm((prev) => ({ ...prev, city_state: newCityState }));
+        }
+      }
+    } catch (err) {
+      console.error('ZIP lookup failed:', err);
+    } finally {
+      setIsFetchingZip(false);
+    }
+  }
+
   // ─── Options (mirror RepairRequest.jsx) ────────────────────────────────────
   const categories = [
     'Plumbing', 'Electrical', 'HVAC / Heating & Cooling', 'Appliance Repair',
@@ -139,6 +162,12 @@ export default function EditRequest() {
       start_time: data.start_time || '',
       service_time: data.service_time || '',
     });
+
+    // If we have a ZIP but no city/state (request was saved with only the ZIP),
+    // auto-run the lookup so the city/state populates without user interaction.
+    if (extractedZip && !cityStateOnly) {
+      lookupZip(extractedZip);
+    }
 
     // Count existing bids so we can warn the user
     const { count } = await supabase
@@ -320,26 +349,11 @@ export default function EditRequest() {
           <input
             type="text"
             value={form.zip}
-            onChange={async (e) => {
+            onChange={(e) => {
               const value = e.target.value.replace(/\D/g, '').slice(0, 5);
               setForm((prev) => ({ ...prev, zip: value }));
               if (/^\d{5}$/.test(value)) {
-                setIsFetchingZip(true);
-                try {
-                  const response = await fetch(`https://api.zippopotam.us/us/${value}`);
-                  if (response.ok) {
-                    const data = await response.json();
-                    if (data.places && data.places.length > 0) {
-                      const place = data.places[0];
-                      const newCityState = `${place['place name']}, ${place['state abbreviation']}`;
-                      setForm((prev) => ({ ...prev, city_state: newCityState }));
-                    }
-                  }
-                } catch (err) {
-                  console.error('ZIP lookup failed:', err);
-                } finally {
-                  setIsFetchingZip(false);
-                }
+                lookupZip(value);
               }
             }}
             placeholder="5-digit ZIP"
