@@ -114,11 +114,14 @@ export default function JobDetail() {
     setLoading(true);
     setActionError('');
 
+    // 1. Fetch the request + bids in one query. We CANNOT join profiles
+    //    directly to service_requests because service_requests.user_id
+    //    references auth.users, not profiles. We fetch the owner profile
+    //    separately below.
     const { data, error } = await supabase
       .from('service_requests')
       .select(`
         *,
-        owner:profiles!service_requests_user_id_fkey(id, name, avatar),
         bids(
           id, pro_id, status, price_estimate, message, created_at,
           pro:profiles!bids_pro_id_fkey(
@@ -143,7 +146,15 @@ export default function JobDetail() {
       return;
     }
 
-    setReq(data);
+    // 2. Fetch the owner profile separately by user_id.
+    //    profiles.id matches auth.users.id matches service_requests.user_id.
+    const { data: ownerProfile } = await supabase
+      .from('profiles')
+      .select('id, name, avatar')
+      .eq('id', data.user_id)
+      .maybeSingle();
+
+    setReq({ ...data, owner: ownerProfile });
     setLoading(false);
 
     // Check if a review exists for this request
