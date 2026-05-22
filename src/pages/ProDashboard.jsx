@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useMessaging } from '../context/MessagingContext';
 import { supabase } from '../lib/supabaseClient';
-import { Clock, MapPin, DollarSign, User, CheckCircle, Smartphone, Mail, AlertCircle, Star, Zap, MessageSquare } from 'lucide-react';
+import { Clock, MapPin, DollarSign, User, CheckCircle, Smartphone, Mail, AlertCircle, Star, Zap, MessageSquare, ArrowUpRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function ProDashboard() {
@@ -511,6 +511,12 @@ export default function ProDashboard() {
                                             <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
                                                 Bid placed: {new Date(bid.created_at).toLocaleDateString()}
                                             </span>
+                                            <Link
+                                                to={`/job/${bid.request_id}`}
+                                                style={{ fontSize: '0.8rem', color: 'var(--color-primary-light)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.15rem', marginLeft: 'auto' }}
+                                            >
+                                                View Job <ArrowUpRight size={12} />
+                                            </Link>
                                         </div>
                                         <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>
                                             {bid.request?.details || 'Unknown Request (Private/Deleted)'}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { useMessaging } from '../context/MessagingContext';
@@ -10,7 +11,7 @@ import { downloadTranscript } from '../lib/exportTranscript';
 import {
   Send, Paperclip, X, MapPin, Clock, AlertTriangle,
   CheckCheck, Lock, ChevronLeft, Image as ImageIcon, Trash2,
-  CheckCircle, XCircle, Phone, Star, Download,
+  CheckCircle, XCircle, Phone, Star, Download, ArrowUpRight,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -492,6 +493,14 @@ export default function ConversationThread({ conversation, onBack }) {
                 <StatusBadge status={bid.status} />
               </>
             )}
+
+            {/* View full job link */}
+            <Link
+              to={`/job/${sr.id}`}
+              style={{ fontSize: '0.78rem', color: 'var(--color-primary-light)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.15rem' }}
+            >
+              View full job <ArrowUpRight size={11} />
+            </Link>
 
             {/* Export button — right-aligned, always visible, utility style */}
             <button

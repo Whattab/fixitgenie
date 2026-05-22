@@ -4,7 +4,7 @@ import { useService } from '../context/ServiceContext';
 import { useMessaging } from '../context/MessagingContext';
 import { supabase } from '../lib/supabaseClient';
 import { acceptBid } from '../lib/jobActions';
-import { Clock, MapPin, DollarSign, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, Shield, Star, MessageSquare, Pencil } from 'lucide-react';
+import { Clock, MapPin, DollarSign, User, CheckCircle, XCircle, ChevronDown, ChevronUp, Trash2, Shield, Star, MessageSquare, Pencil, ArrowUpRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import ReviewModal from '../components/ReviewModal';
 import RequestQnA from '../components/RequestQnA';
@@ -352,6 +352,16 @@ export default function HomeownerDashboard() {
                                         >
                                             <Trash2 size={16} />
                                         </button>
+                                        <Link
+                                            to={`/job/${req.id}`}
+                                            title="View Job"
+                                            style={{
+                                                background: 'rgba(99,102,241,0.1)', border: 'none', borderRadius: '50%', width: '30px', height: '30px',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-primary-light)', textDecoration: 'none'
+                                            }}
+                                        >
+                                            <ArrowUpRight size={15} />
+                                        </Link>
                                     </div>
                                     <div>
                                         <div style={{ fontSize: '2rem', fontWeight: 'bold', color: req.bids?.length > 0 ? '#4ade80' : 'var(--text-muted)' }}>
