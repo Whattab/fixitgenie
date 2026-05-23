@@ -102,6 +102,7 @@ export default function JobDetail() {
 
   // Review existence check
   const [hasReview, setHasReview] = useState(false);
+  const [review, setReview] = useState(null);
 
   // Conversation linking state
   const [convLoading, setConvLoading] = useState(false);
@@ -178,13 +179,30 @@ export default function JobDetail() {
     setReq({ ...requestRow, owner: ownerProfile, bids: enrichedBids });
     setLoading(false);
 
-    // 5. Has a review been posted for this request?
+    // 5. Has a review been posted for this request? Fetch full review +
+    //    reviewer name so we can display it inline below.
     const { data: reviewRow } = await supabase
       .from('reviews')
-      .select('id')
+      .select('id, rating, comment, created_at, reviewer_id')
       .eq('request_id', requestRow.id)
       .maybeSingle();
-    setHasReview(!!reviewRow);
+
+    if (reviewRow) {
+      setHasReview(true);
+      let reviewerName = 'Homeowner';
+      if (reviewRow.reviewer_id) {
+        const { data: reviewerProfile } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', reviewRow.reviewer_id)
+          .maybeSingle();
+        if (reviewerProfile?.name) reviewerName = reviewerProfile.name;
+      }
+      setReview({ ...reviewRow, reviewer_name: reviewerName });
+    } else {
+      setHasReview(false);
+      setReview(null);
+    }
   }, [id, user?.id]);
 
   useEffect(() => {
@@ -775,6 +793,33 @@ export default function JobDetail() {
 
           {/* All bids (homeowner + open) */}
           {renderAllBidsCard()}
+
+          {/* Review (if one exists for this job) */}
+          {review && (
+            <SectionCard title="Homeowner's Review">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                <div>
+                  <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{review.reviewer_name}</strong>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {new Date(review.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.15rem' }}>
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <Star key={s} size={16}
+                      fill={s <= review.rating ? '#fbbf24' : 'none'}
+                      color={s <= review.rating ? '#fbbf24' : '#4b5563'}
+                    />
+                  ))}
+                </div>
+              </div>
+              {review.comment && (
+                <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                  {review.comment}
+                </p>
+              )}
+            </SectionCard>
+          )}
 
           {/* Q&A */}
           <SectionCard title="Questions & Answers">

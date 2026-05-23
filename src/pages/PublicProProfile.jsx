@@ -15,10 +15,49 @@ export default function PublicProProfile() {
     const [portfolio, setPortfolio] = useState([]);
     const [loading, setLoading] = useState(true);
     const [qualifyingRequestId, setQualifyingRequestId] = useState(null);
+    const [reviews, setReviews] = useState([]);
+    const [reviewsLoading, setReviewsLoading] = useState(true);
 
     useEffect(() => {
         fetchProfileData();
+        fetchReviews();
     }, [id]);
+
+    const fetchReviews = async () => {
+        setReviewsLoading(true);
+        try {
+            // Reviews are public (RLS allows select using true)
+            const { data, error } = await supabase
+                .from('reviews')
+                .select('id, rating, comment, created_at, reviewer_id')
+                .eq('pro_id', id)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+
+            // Fetch reviewer names separately (profiles is also public-readable)
+            const reviewsList = data || [];
+            if (reviewsList.length > 0) {
+                const reviewerIds = [...new Set(reviewsList.map(r => r.reviewer_id).filter(Boolean))];
+                const { data: reviewers } = await supabase
+                    .from('profiles')
+                    .select('id, name')
+                    .in('id', reviewerIds);
+                const namesById = {};
+                (reviewers || []).forEach(p => { namesById[p.id] = p.name; });
+                setReviews(reviewsList.map(r => ({
+                    ...r,
+                    reviewer_name: namesById[r.reviewer_id] || 'Homeowner',
+                })));
+            } else {
+                setReviews([]);
+            }
+        } catch (err) {
+            console.error('Error fetching reviews:', err);
+            setReviews([]);
+        } finally {
+            setReviewsLoading(false);
+        }
+    };
 
     // Check if viewer is a homeowner with an active bid from this pro
     useEffect(() => {
@@ -299,6 +338,53 @@ export default function PublicProProfile() {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            {/* Reviews Section */}
+            <div style={{ marginTop: '2rem' }}>
+                <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Star size={22} color="#fbbf24" /> Customer Reviews
+                    {reviews.length > 0 && (
+                        <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                            ({reviews.length})
+                        </span>
+                    )}
+                </h2>
+                {reviewsLoading ? (
+                    <p style={{ color: 'var(--text-muted)' }}>Loading reviews…</p>
+                ) : reviews.length === 0 ? (
+                    <div className="glass-panel" style={{ padding: '1.5rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                        No reviews yet. Be the first to share your experience.
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {reviews.map(rev => (
+                            <div key={rev.id} className="glass-panel" style={{ padding: '1.25rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                                    <div>
+                                        <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{rev.reviewer_name}</strong>
+                                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                            {new Date(rev.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.15rem' }}>
+                                        {[1, 2, 3, 4, 5].map(s => (
+                                            <Star key={s} size={16}
+                                                fill={s <= rev.rating ? '#fbbf24' : 'none'}
+                                                color={s <= rev.rating ? '#fbbf24' : '#4b5563'}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                                {rev.comment && (
+                                    <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                                        {rev.comment}
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Portfolio Section */}

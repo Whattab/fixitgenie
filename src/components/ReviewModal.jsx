@@ -1,12 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Star, X } from 'lucide-react';
 
+/**
+ * ReviewModal — submit OR edit the homeowner's review for a specific job.
+ * One review per (request_id, reviewer_id) is enforced at the DB level
+ * by a unique constraint added in reviews_v2_constraints.sql.
+ */
 export default function ReviewModal({ isOpen, onClose, requestId, proId, onReviewSubmitted }) {
     const [rating, setRating] = useState(0);
     const [hoverRating, setHoverRating] = useState(0);
     const [comment, setComment] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [existingReviewId, setExistingReviewId] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    // When the modal opens, check if this user has already reviewed this job.
+    // If yes, pre-fill the form and switch into "edit" mode.
+    useEffect(() => {
+        if (!isOpen || !requestId) return;
+        let cancelled = false;
+
+        (async () => {
+            setLoading(true);
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) { setLoading(false); return; }
+
+                const { data, error } = await supabase
+                    .from('reviews')
+                    .select('id, rating, comment')
+                    .eq('request_id', requestId)
+                    .eq('reviewer_id', user.id)
+                    .maybeSingle();
+
+                if (cancelled) return;
+                if (error) { console.error('[ReviewModal] check existing error:', error); }
+
+                if (data) {
+                    setExistingReviewId(data.id);
+                    setRating(data.rating ?? 0);
+                    setComment(data.comment ?? '');
+                } else {
+                    setExistingReviewId(null);
+                    setRating(0);
+                    setComment('');
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [isOpen, requestId]);
 
     if (!isOpen) return null;
 
@@ -21,19 +67,37 @@ export default function ReviewModal({ isOpen, onClose, requestId, proId, onRevie
         try {
             const { data: { user } } = await supabase.auth.getUser();
 
-            const { error } = await supabase
-                .from('reviews')
-                .insert({
-                    request_id: requestId,
-                    pro_id: proId,
-                    reviewer_id: user.id,
-                    rating: rating,
-                    comment: comment
-                });
+            if (existingReviewId) {
+                // Edit existing review (UPDATE)
+                const { error } = await supabase
+                    .from('reviews')
+                    .update({ rating, comment })
+                    .eq('id', existingReviewId);
+                if (error) throw error;
+                alert('Your review has been updated.');
+            } else {
+                // New review (INSERT). The unique constraint will reject duplicates.
+                const { error } = await supabase
+                    .from('reviews')
+                    .insert({
+                        request_id: requestId,
+                        pro_id: proId,
+                        reviewer_id: user.id,
+                        rating,
+                        comment,
+                    });
+                if (error) {
+                    // If a duplicate slipped through (e.g. concurrent insert), surface clearly.
+                    if (error.code === '23505') {
+                        alert('You have already reviewed this job. Reopen the modal to edit it.');
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    alert('Review submitted! Thank you.');
+                }
+            }
 
-            if (error) throw error;
-
-            alert("Review submitted! Thank you.");
             onReviewSubmitted();
             onClose();
         } catch (error) {
@@ -43,6 +107,9 @@ export default function ReviewModal({ isOpen, onClose, requestId, proId, onRevie
             setSubmitting(false);
         }
     };
+
+    const headerTitle = existingReviewId ? 'Edit Your Review' : 'Rate Your Experience';
+    const submitLabel = existingReviewId ? 'Save Changes' : 'Submit Review';
 
     return (
         <div style={{
@@ -57,8 +124,11 @@ export default function ReviewModal({ isOpen, onClose, requestId, proId, onRevie
                     <X size={24} />
                 </button>
 
-                <h2 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>Rate Your Experience</h2>
+                <h2 style={{ marginBottom: '1.5rem', textAlign: 'center' }}>{headerTitle}</h2>
 
+                {loading ? (
+                    <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Loading…</p>
+                ) : (
                 <form onSubmit={handleSubmit}>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
                         {[1, 2, 3, 4, 5].map((star) => (
@@ -104,9 +174,10 @@ export default function ReviewModal({ isOpen, onClose, requestId, proId, onRevie
                         disabled={submitting}
                         style={{ width: '100%', padding: '1rem', fontSize: '1.1rem' }}
                     >
-                        {submitting ? 'Submitting...' : 'Submit Review'}
+                        {submitting ? 'Submitting...' : submitLabel}
                     </button>
                 </form>
+                )}
             </div>
         </div>
     );

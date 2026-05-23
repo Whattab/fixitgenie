@@ -25,6 +25,10 @@ export default function ProDashboard() {
         description: ''
     });
 
+    // Reviews State
+    const [reviewsReceived, setReviewsReceived] = useState([]);
+    const [newReviewsCount, setNewReviewsCount] = useState(0);
+
     // Availability and Location state
     const [isAvailable, setIsAvailable] = useState(true);
     const [activeZipcode, setActiveZipcode] = useState('');
@@ -58,13 +62,63 @@ export default function ProDashboard() {
                 fetchMyBids();
             } else if (activeTab === 'portfolio') {
                 fetchPortfolio();
+            } else if (activeTab === 'reviews') {
+                fetchReviewsReceived();
             }
+
+            // Always fetch reviews count (small query, drives the tab badge)
+            fetchReviewsCount();
 
             return () => {
                 supabase.removeChannel(profileSubscription);
             };
         }
     }, [user, activeTab]);
+
+    const fetchReviewsReceived = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('reviews')
+                .select('id, rating, comment, created_at, reviewer_id, request_id')
+                .eq('pro_id', user.id)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+
+            const list = data || [];
+            if (list.length > 0) {
+                const reviewerIds = [...new Set(list.map(r => r.reviewer_id).filter(Boolean))];
+                const { data: reviewers } = await supabase
+                    .from('profiles')
+                    .select('id, name')
+                    .in('id', reviewerIds);
+                const namesById = {};
+                (reviewers || []).forEach(p => { namesById[p.id] = p.name; });
+                setReviewsReceived(list.map(r => ({
+                    ...r,
+                    reviewer_name: namesById[r.reviewer_id] || 'Homeowner',
+                })));
+            } else {
+                setReviewsReceived([]);
+            }
+        } catch (err) {
+            console.error('Error fetching reviews received:', err);
+            setReviewsReceived([]);
+        }
+    };
+
+    const fetchReviewsCount = async () => {
+        try {
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+            const { count, error } = await supabase
+                .from('reviews')
+                .select('id', { count: 'exact', head: true })
+                .eq('pro_id', user.id)
+                .gte('created_at', sevenDaysAgo);
+            if (!error) setNewReviewsCount(count ?? 0);
+        } catch (err) {
+            console.error('Error counting new reviews:', err);
+        }
+    };
 
     const fetchProfileSettings = async () => {
         try {
@@ -427,7 +481,25 @@ export default function ProDashboard() {
                 >
                     My Profile
                 </button>
-                <button 
+                <button
+                    onClick={() => setActiveTab('reviews')}
+                    style={{
+                        padding: '1rem 2rem', background: 'none', border: 'none', color: activeTab === 'reviews' ? 'var(--color-primary-light)' : 'var(--text-muted)',
+                        borderBottom: activeTab === 'reviews' ? '3px solid var(--color-primary)' : '3px solid transparent',
+                        fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '0.5rem', position: 'relative'
+                    }}
+                >
+                    Reviews
+                    {newReviewsCount > 0 && (
+                        <span style={{
+                            background: '#ef4444', color: 'white', fontSize: '0.7rem', fontWeight: 700,
+                            padding: '0.1rem 0.45rem', borderRadius: '10px', lineHeight: 1.4,
+                        }}>
+                            {newReviewsCount} new
+                        </span>
+                    )}
+                </button>
+                <button
                     onClick={() => setActiveTab('subscription')}
                     style={{
                         padding: '1rem 2rem', background: 'none', border: 'none', color: activeTab === 'subscription' ? 'var(--color-primary-light)' : 'var(--text-muted)',
@@ -728,6 +800,62 @@ export default function ProDashboard() {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {activeTab === 'reviews' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div className="glass-panel" style={{ padding: '1.5rem' }}>
+                        <h2 style={{ fontSize: '1.4rem', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Star size={22} color="#fbbf24" /> Reviews Received
+                            <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                                ({reviewsReceived.length})
+                            </span>
+                        </h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
+                            Reviews homeowners have left after completed jobs. New reviews from the last 7 days are highlighted.
+                        </p>
+                    </div>
+
+                    {reviewsReceived.length === 0 ? (
+                        <div className="glass-panel" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                            No reviews yet. Once a homeowner rates a completed job, it will appear here.
+                        </div>
+                    ) : (
+                        reviewsReceived.map(rev => {
+                            const isNew = (Date.now() - new Date(rev.created_at).getTime()) < (7 * 24 * 60 * 60 * 1000);
+                            return (
+                                <div key={rev.id} className="glass-panel" style={{ padding: '1.25rem', borderLeft: isNew ? '3px solid var(--color-primary)' : undefined }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                <strong style={{ color: 'var(--text-main)', fontSize: '0.95rem' }}>{rev.reviewer_name}</strong>
+                                                {isNew && (
+                                                    <span style={{ background: '#ef4444', color: 'white', fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.45rem', borderRadius: '10px' }}>NEW</span>
+                                                )}
+                                            </div>
+                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                                {new Date(rev.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.15rem' }}>
+                                            {[1, 2, 3, 4, 5].map(s => (
+                                                <Star key={s} size={16}
+                                                    fill={s <= rev.rating ? '#fbbf24' : 'none'}
+                                                    color={s <= rev.rating ? '#fbbf24' : '#4b5563'}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {rev.comment && (
+                                        <p style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-main)', lineHeight: 1.5 }}>
+                                            {rev.comment}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
             )}
 
