@@ -114,54 +114,75 @@ export default function JobDetail() {
     setLoading(true);
     setActionError('');
 
-    // 1. Fetch the request + bids in one query. We CANNOT join profiles
-    //    directly to service_requests because service_requests.user_id
-    //    references auth.users, not profiles. We fetch the owner profile
-    //    separately below.
-    const { data, error } = await supabase
+    // We avoid nested foreign-key joins because FK names in this schema
+    // are not consistent. Instead, fetch each piece separately — same
+    // pattern HomeownerDashboard.jsx uses.
+
+    // 1. The request itself
+    const { data: requestRow, error: requestErr } = await supabase
       .from('service_requests')
-      .select(`
-        *,
-        bids(
-          id, pro_id, status, price_estimate, message, created_at,
-          pro:profiles!bids_pro_id_fkey(
-            id, name, avatar, vetting_status,
-            reviews!reviews_pro_id_fkey(rating)
-          )
-        )
-      `)
+      .select('*')
       .eq('id', id)
       .maybeSingle();
 
-    if (error) {
-      console.error('[JobDetail] fetch error:', error);
+    if (requestErr) {
+      console.error('[JobDetail] fetch request error:', requestErr);
       setNotFound(true);
       setLoading(false);
       return;
     }
 
-    if (!data) {
+    if (!requestRow) {
       setNotFound(true);
       setLoading(false);
       return;
     }
 
-    // 2. Fetch the owner profile separately by user_id.
-    //    profiles.id matches auth.users.id matches service_requests.user_id.
+    // 2. Owner profile
     const { data: ownerProfile } = await supabase
       .from('profiles')
       .select('id, name, avatar')
-      .eq('id', data.user_id)
+      .eq('id', requestRow.user_id)
       .maybeSingle();
 
-    setReq({ ...data, owner: ownerProfile });
+    // 3. Bids on this request
+    const { data: bidRows } = await supabase
+      .from('bids')
+      .select('id, pro_id, status, price_estimate, message, created_at, pro_name')
+      .eq('request_id', requestRow.id)
+      .order('created_at', { ascending: true });
+
+    const bids = bidRows ?? [];
+
+    // 4. Pro profiles + ratings for those bids (single batch fetch)
+    let prosById = {};
+    if (bids.length > 0) {
+      const proIds = [...new Set(bids.map((b) => b.pro_id))];
+      const { data: pros } = await supabase
+        .from('profiles')
+        .select('id, name, avatar, vetting_status, reviews!reviews_pro_id_fkey(rating)')
+        .in('id', proIds);
+      if (pros) {
+        pros.forEach((p) => {
+          prosById[p.id] = p;
+        });
+      }
+    }
+
+    // Attach pro info onto each bid
+    const enrichedBids = bids.map((b) => ({
+      ...b,
+      pro: prosById[b.pro_id] ?? null,
+    }));
+
+    setReq({ ...requestRow, owner: ownerProfile, bids: enrichedBids });
     setLoading(false);
 
-    // Check if a review exists for this request
+    // 5. Has a review been posted for this request?
     const { data: reviewRow } = await supabase
       .from('reviews')
       .select('id')
-      .eq('request_id', data.id)
+      .eq('request_id', requestRow.id)
       .maybeSingle();
     setHasReview(!!reviewRow);
   }, [id, user?.id]);
